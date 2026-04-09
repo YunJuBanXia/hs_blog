@@ -45,9 +45,6 @@ mod tests {
         let raw = "my_password".to_string();
         let pwd = Password::new(raw.clone());
 
-        println!("Hashed password: {}", pwd.0);
-        println!("Verifying password: {}", raw);
-
         assert!(pwd.verify(raw));
     }
 }
