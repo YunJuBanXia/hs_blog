@@ -1,7 +1,6 @@
 use serde::{Serialize, Deserialize};
 use argon2::{
-    password_hash::{rand_core::OsRng, SaltString},
-    Argon2, PasswordHasher,
+    Argon2, PasswordHasher, PasswordVerifier, password_hash::{SaltString, rand_core::OsRng}
 };
 
 
@@ -16,11 +15,12 @@ impl Password {
 
 
     pub fn verify(&self, raw: String) -> bool {
-        let salt = SaltString::from_b64(self.0.as_str()).unwrap();
-        let hash = Argon2::default()
-            .hash_password(raw.as_bytes(), &salt)
-            .expect("argon2 hashing should succeed with default parameters");
-        hash.to_string() == self.0
+        let parsed_hash = argon2::PasswordHash::new(&self.0)
+            .expect("stored password hash should be valid");
+
+        Argon2::default()
+            .verify_password(raw.as_bytes(), &parsed_hash)
+            .is_ok()
     }
 
 
@@ -31,5 +31,23 @@ impl Password {
             .expect("argon2 hashing should succeed with default parameters");
 
         hash.to_string()
+    }
+}
+
+
+// cargo test pwd
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pwd_hash_and_verify() {
+        let raw = "my_password".to_string();
+        let pwd = Password::new(raw.clone());
+
+        println!("Hashed password: {}", pwd.0);
+        println!("Verifying password: {}", raw);
+
+        assert!(pwd.verify(raw));
     }
 }
