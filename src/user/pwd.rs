@@ -1,19 +1,35 @@
 use serde::{Serialize, Deserialize};
+use argon2::{
+    password_hash::{rand_core::OsRng, SaltString},
+    Argon2, PasswordHasher,
+};
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Password(String);  // 存储哈希后的密码
 
+
 impl Password {
     pub fn new(raw: String) -> Self {
-        todo!("Hash the password and return a Password instance")
+        Self(Self::hash(raw))
     }
+
 
     pub fn verify(&self, raw: String) -> bool {
-        todo!("Check if the raw password matches the hashed password")
+        let salt = SaltString::from_b64(self.0.as_str()).unwrap();
+        let hash = Argon2::default()
+            .hash_password(raw.as_bytes(), &salt)
+            .expect("argon2 hashing should succeed with default parameters");
+        hash.to_string() == self.0
     }
 
+
     fn hash(raw: String) -> String {
-        // bcrypt or argon2
-        todo!("Hash the password using a secure algorithm")
+        let salt = SaltString::generate(&mut OsRng);
+        let hash = Argon2::default()
+            .hash_password(raw.as_bytes(), &salt)
+            .expect("argon2 hashing should succeed with default parameters");
+
+        hash.to_string()
     }
 }
