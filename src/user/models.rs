@@ -21,4 +21,8 @@ impl User {
         self.password = Password::new(raw_password);
     }
 
+
+    pub fn check_password(&self, raw_pwd: String) -> bool {
+        self.password.verify(raw_pwd)
+    }
 }
