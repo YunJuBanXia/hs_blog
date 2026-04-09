@@ -10,6 +10,7 @@ pub struct Password(String);  // 存储哈希后的密码
 
 impl Password {
     pub fn new(raw: String) -> Self {
+        // 密码一创建就进行哈希, Password 对象永远存储哈希后的密码
         Self(Self::hash(raw))
     }
 
