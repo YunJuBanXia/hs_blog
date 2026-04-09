@@ -17,5 +17,8 @@ impl User {
     }
 
     
+    pub fn set_password(&mut self, raw_password: String) {
+        self.password = Password::new(raw_password);
+    }
 
 }
