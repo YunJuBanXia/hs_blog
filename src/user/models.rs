@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
-
 use crate::user::pwd::Password;
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -9,6 +9,7 @@ pub struct User {
     email: String,
     password: Password,
 }
+
 
 impl User {
     pub fn new(id: u32, name: String, email: String, raw_password: String) -> Self {
