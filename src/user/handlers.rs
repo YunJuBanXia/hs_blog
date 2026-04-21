@@ -1,15 +1,23 @@
 use axum::{Extension, Json, extract::Path, response::IntoResponse};
 use sqlx::PgPool;
-use crate::user::models::User;
+use serde::{Serialize, Deserialize};
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserResponse {
+    pub id: i32,
+    pub username: String,
+    pub email: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
 
 
 pub async fn get_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
     // 查询所有用户
     // 应尽量不使用这一函数, 而应该使用下面的 get_users_paged 来分页查询用户, 以避免一次性加载过多数据
-    // 且这一函数会暴露密码哈希, 因为 Json(users) 不会调用 User 的 IntoResponse 实现, 而是直接序列化 User 结构体, 导致密码哈希被包含在响应中
-    let users: Vec<User> = sqlx::query_as!(
-        User,
-        "SELECT id, username, email, password_hash, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users"
+    let users: Vec<UserResponse> = sqlx::query_as!(
+        UserResponse,
+        "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users"
     )
         .fetch_all(&pool)
         .await
@@ -21,13 +29,29 @@ pub async fn get_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse 
 
 pub async fn get_user_by_id(Path(id): Path<i32>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
     let user = sqlx::query_as!(
-        User,
-        "SELECT id, username, email, password_hash, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
+        UserResponse,
+        "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
         id
     )
         .fetch_one(&pool)
         .await
         .expect("Failed to fetch user by ID");
     
-    user
+    Json(user)
+}
+
+
+pub async fn get_users_paged(Path((page, page_size)): Path<(i64, i64)>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+    let offset = (page - 1) * page_size;
+    let users: Vec<UserResponse> = sqlx::query_as!(
+        UserResponse,
+        "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users ORDER BY id LIMIT $1 OFFSET $2",
+        page_size,
+        offset
+    )
+        .fetch_all(&pool)
+        .await
+        .expect("Failed to fetch paged users");
+    
+    Json(users)
 }
