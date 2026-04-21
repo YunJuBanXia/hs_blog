@@ -3,6 +3,7 @@ use blog::{db::init_db, user};
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
     let app = Router::new()
         .nest("api/", user::urls::router())
         .layer(Extension(init_db().await.expect("Failed to initialize the database")));
