@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::user::pwd::Password;
+use chrono::{DateTime, Utc};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,13 +9,15 @@ pub struct User {
     name: String,
     email: String,
     password: Password,
+    created_at: DateTime<Utc>,
 }
 
 
 impl User {
     pub fn new(id: u32, name: String, email: String, raw_password: String) -> Self {
         let password = Password::new(raw_password);
-        Self { id, name, email, password }
+        let created_at = Utc::now();
+        Self { id, name, email, password, created_at }
     }
 
     
