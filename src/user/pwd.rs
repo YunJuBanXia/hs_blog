@@ -5,7 +5,7 @@ use argon2::{
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Password(String);  // 存储哈希后的密码
+pub struct Password(pub String);  // 存储哈希后的密码
 
 
 impl Password {
