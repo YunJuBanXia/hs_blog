@@ -38,6 +38,7 @@ impl User {
 
 impl IntoResponse for User {
     fn into_response(self) -> Response {
+        // 响应时不包含密码的哈希
         let user_info = serde_json::json!({
             "id": self.id,
             "username": self.username,
