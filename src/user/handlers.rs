@@ -1,4 +1,4 @@
-use axum::{Extension, Json, extract::Path, response::{IntoResponse, Response}};
+use axum::{Extension, Json, extract::Path, response::IntoResponse};
 use sqlx::PgPool;
 use crate::user::models::User;
 
