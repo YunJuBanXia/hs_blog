@@ -6,11 +6,13 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
-    pub id: i32,
-    pub username: String,
-    pub email: String,
-    pub password_hash: String,
-    pub created_at: DateTime<Utc>,
+    id: i32,
+    username: String,
+    email: String,
+    password_hash: String,  // 存储哈希后的密码
+    created_at: DateTime<Utc>,
+    is_active: bool,  // 用户注销不删除数据, 而是将该字段标记为 false
+    is_admin: bool,   // 是否管理员用户
 }
 
 
@@ -19,7 +21,7 @@ impl User {
         let pwd = Password::new(raw_password);
         let password_hash = pwd.0.clone();
         let created_at = Utc::now();
-        Self { id, username, email, password_hash, created_at }
+        Self { id, username, email, password_hash, created_at, is_active: true, is_admin: false }
     }
 
     
