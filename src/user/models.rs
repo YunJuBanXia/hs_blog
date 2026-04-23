@@ -1,4 +1,4 @@
-use axum::response::{IntoResponse, Response};
+use axum::{Json, http::{HeaderMap, StatusCode}, response::{IntoResponse, Response}};
 use serde::{Serialize, Deserialize};
 use crate::user::pwd::Password;
 use chrono::{DateTime, Utc};
@@ -40,6 +40,7 @@ impl User {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
+    // 使用时直接使用 Json(response) 包装即可, 不需要手动构造 Response 对象
     pub id: i32,
     pub username: String,
     pub email: String,
