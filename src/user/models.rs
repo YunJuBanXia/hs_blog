@@ -6,8 +6,8 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct User {
     id: i32,
-    username: String,
-    email: String,
+    username: String,  // 全小写, 不允许重复
+    email: String,  // 全小写, 不允许重复
     password_hash: String,  // 存储哈希后的密码
     created_at: DateTime<Utc>,
     is_active: bool,  // 用户注销不删除数据, 而是将该字段标记为 false
