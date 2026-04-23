@@ -5,10 +5,10 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserResponse {
-    pub id: i32,
-    pub username: String,
-    pub email: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    id: i32,
+    username: String,
+    email: String,
+    created_at: chrono::DateTime<chrono::Utc>,
 }
 
 
