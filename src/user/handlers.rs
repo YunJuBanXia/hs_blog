@@ -1,16 +1,6 @@
 use axum::{Extension, Json, extract::Path, response::IntoResponse};
 use sqlx::PgPool;
-use serde::{Serialize, Deserialize};
-
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UserResponse {
-    id: i32,
-    username: String,
-    email: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-}
-
+use crate::user::models::{UserResponse};
 
 pub async fn get_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
     // 查询所有用户

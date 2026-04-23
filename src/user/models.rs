@@ -38,15 +38,10 @@ impl User {
 }
 
 
-impl IntoResponse for User {
-    fn into_response(self) -> Response {
-        // 响应时不包含密码的哈希
-        let user_info = serde_json::json!({
-            "id": self.id,
-            "username": self.username,
-            "email": self.email,
-            "created_at": self.created_at,
-        });
-        axum::Json(user_info).into_response()
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserResponse {
+    pub id: i32,
+    pub username: String,
+    pub email: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
