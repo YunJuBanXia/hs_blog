@@ -20,16 +20,19 @@ pub async fn get_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse 
 
 
 pub async fn get_user_by_id(Path(id): Path<i32>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
-    let user = sqlx::query_as!(
+    let result = sqlx::query_as!(
         UserResponse,
         "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
         id
     )
-        .fetch_one(&pool)
-        .await
-        .expect("Failed to fetch user by ID");
+        .fetch_optional(&pool)
+        .await;
     
-    Json(user)
+    match result {
+        Ok(Some(user)) => (StatusCode::OK, Json(user)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "User not found").into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch user").into_response()
+    }
 }
 
 
