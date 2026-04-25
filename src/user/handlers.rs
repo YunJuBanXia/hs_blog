@@ -1,6 +1,6 @@
 use axum::{Extension, Json, extract::Path, http::StatusCode, response::IntoResponse};
 use sqlx::PgPool;
-use crate::user::models::{UserResponse};
+use crate::user::{pwd::Password, serializers::{UserRegisterSerializer, UserResponse, Validate}};
 
 pub async fn list_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
     // 查询所有用户
