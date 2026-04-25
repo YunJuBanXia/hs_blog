@@ -68,7 +68,7 @@ impl Validate for UserRegisterSerializer {
             email
         ).fetch_one(&pool).await?.unwrap_or(false);
 
-        if !is_email_exists {
+        if is_email_exists {
             return Ok(false);
         }
 
