@@ -1,8 +1,9 @@
-use axum::{Extension, Json, extract::Path, http::StatusCode, response::IntoResponse};
+use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
 use sqlx::PgPool;
 use crate::user::{pwd::Password, serializers::{UserRegisterSerializer, UserResponse, Validate}};
 
-pub async fn list_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+
+pub async fn list_users(State(pool): State<PgPool>) -> impl IntoResponse {
     // 查询所有用户
     // 应尽量不使用这一函数, 而应该使用下面的 get_users_paged 来分页查询用户, 以避免一次性加载过多数据
     let result: Result<Vec<UserResponse>, sqlx::Error> = sqlx::query_as!(
@@ -19,7 +20,7 @@ pub async fn list_users(Extension(pool): Extension<PgPool>) -> impl IntoResponse
 }
 
 
-pub async fn get_user(Path(id): Path<i32>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+pub async fn get_user(Path(id): Path<i32>, State(pool): State<PgPool>) -> impl IntoResponse {
     let result = sqlx::query_as!(
         UserResponse,
         "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
@@ -36,7 +37,7 @@ pub async fn get_user(Path(id): Path<i32>, Extension(pool): Extension<PgPool>) -
 }
 
 
-pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, State(pool): State<PgPool>) -> impl IntoResponse {
     let offset = (page - 1) * page_size;
     let result: Result<Vec<UserResponse>, sqlx::Error> = sqlx::query_as!(
         UserResponse,
@@ -54,9 +55,9 @@ pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, Extensi
 }
 
 
-pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, Extension(pool): Extension<PgPool>) -> impl IntoResponse {
+pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, State(pool): State<PgPool>) -> impl IntoResponse {
     // 验证输入数据
-    match serializer.validate(Extension(pool.clone())).await {
+    match serializer.validate(State(pool.clone())).await {
         Ok(true) => {
             // 验证通过, 创建新用户
             let new_user = sqlx::query!(
@@ -81,4 +82,10 @@ pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, Exten
         Ok(false) => (StatusCode::BAD_REQUEST, "Invalid input data").into_response(),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Validation error").into_response()
     }
+}
+
+
+pub async fn user_login() -> impl IntoResponse {
+    // TODO: 实现用户登录功能, 包括验证用户名/邮箱和密码, 以及生成 JWT token 等
+    (StatusCode::NOT_IMPLEMENTED, "Login functionality not implemented yet").into_response()
 }

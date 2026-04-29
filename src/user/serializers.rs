@@ -1,8 +1,9 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use axum::Extension;
+use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use sqlx::PgPool;
 
 
 /// 这个 trait 定义了一个 validate 方法, 用于验证请求数据的合法性,
@@ -11,7 +12,7 @@ use chrono::{DateTime, Utc};
 /// Err(e) 表示发生内部错误
 #[async_trait]
 pub trait Validate {
-    async fn validate(&self, pool: Extension<sqlx::PgPool>) -> Result<bool, anyhow::Error>;
+    async fn validate(&self, State(pool): State<PgPool>) -> Result<bool, anyhow::Error>;
 }
 
 
@@ -35,8 +36,7 @@ pub struct UserRegisterSerializer {
 
 #[async_trait]
 impl Validate for UserRegisterSerializer {
-    async fn validate(&self, pool: Extension<sqlx::PgPool>) -> Result<bool, anyhow::Error> {
-        let Extension(pool) = pool;
+    async fn validate(&self, State(pool): State<PgPool>) -> Result<bool, anyhow::Error> {
 
         // 验证用户名: 将输入转为小写, 长度范围 3-50, 只能包含字母, 数字, 下划线, 以及是否与已有用户冲突
         let username = self.username.to_lowercase();

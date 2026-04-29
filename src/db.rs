@@ -1,6 +1,8 @@
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
+
+/// 初始化数据库连接池
 pub async fn init_db() -> Result<PgPool, sqlx::Error> {
     let database_url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
