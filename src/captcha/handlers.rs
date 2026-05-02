@@ -1,24 +1,11 @@
 use axum::extract::State;
 use captcha_rs::CaptchaBuilder;
 use chrono::Utc;
-use serde::{Serialize, Deserialize};
 use sha2::{Sha256, Digest};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CaptchaResponse {
-    pub captcha_id: String,
-    pub image_base64: String,  // base64 编码的图片数据
-}
-
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CaptchaVerify {
-    pub captcha_id: String,
-    pub answer: String,
-}
+use crate::captcha::serializers::CaptchaResponse;
 
 
 pub async fn generate_captcha(State(pool): State<PgPool>) -> Result<CaptchaResponse, anyhow::Error> {
@@ -63,4 +50,37 @@ pub async fn generate_captcha(State(pool): State<PgPool>) -> Result<CaptchaRespo
         captcha_id: captcha_id,
         image_base64,
     })
+}
+
+
+/// 验证用户提交的验证码答案是否正确.
+/// Ok(true) 表示验证通过;
+/// Ok(false) 表示验证失败, 包括验证码过期或答案错误;
+/// Err(e) 表示发生内部错误, 例如数据库查询失败;
+pub async fn verify_captcha(State(pool): State<PgPool>, captcha_id: String, answer: String) -> Result<bool, anyhow::Error> {
+    // 从数据库中查询对应的 hashed_answer 和 expires_at
+    let record = sqlx::query!(
+        "SELECT answer_hash, expires_at FROM image_captchas WHERE id = $1",
+        captcha_id
+    )
+    .fetch_optional(&pool)
+    .await?;
+
+    if let Some(record) = record {
+        // 检查验证码是否过期
+        if Utc::now() > record.expires_at {
+            return Ok(false);
+        }
+
+        // 对用户输入的 answer 进行哈希
+        let mut hasher = Sha256::new();
+        hasher.update(answer.as_bytes());
+        let hashed_input: String = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect();
+
+        // 比较哈希值
+        Ok(hashed_input == record.answer_hash)
+    } else {
+        // 没有找到对应的验证码记录
+        Err(anyhow::anyhow!("Captcha ID {} does not exist", captcha_id))
+    }
 }
