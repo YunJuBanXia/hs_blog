@@ -1,5 +1,5 @@
 use axum::Router;
-use blog::{db::init_db, user};
+use blog::{captcha, db::init_db, user};
 
 
 #[tokio::main]
@@ -17,6 +17,7 @@ async fn main() {
 
     let app = Router::new()
         .nest("api/", user::urls::router())
+        .nest("api/", captcha::urls::router())
         // 将数据库连接池注入到应用状态中
         .with_state(pool);
 
