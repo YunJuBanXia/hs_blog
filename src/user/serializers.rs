@@ -37,7 +37,6 @@ pub struct UserRegisterSerializer {
 #[async_trait]
 impl Validate for UserRegisterSerializer {
     async fn validate(&self, State(pool): State<PgPool>) -> Result<bool, anyhow::Error> {
-
         // 验证用户名: 将输入转为小写, 长度范围 3-50, 只能包含字母, 数字, 下划线, 以及是否与已有用户冲突
         let username = self.username.to_lowercase();
         if username.len() < 3 || username.len() > 50 {
