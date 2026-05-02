@@ -81,8 +81,11 @@ impl Validate for UserRegisterSerializer {
         let has_lower = raw_pwd.chars().any(|c| c.is_lowercase());
         let has_digit = raw_pwd.chars().any(|c| c.is_ascii_digit());
         let has_special = raw_pwd.chars().any(|c| "!@#$%^&*()-+_".contains(c));
-        let valid_password = [has_upper, has_lower, has_digit, has_special].iter().filter(|&&x| x).count() >= 2;
-        if !valid_password {
+        let is_valid_password = [has_upper, has_lower, has_digit, has_special]
+            .iter()
+            .filter(|&&x| x)
+            .count() >= 2;
+        if !is_valid_password {
             return Ok(false);
         }
         
