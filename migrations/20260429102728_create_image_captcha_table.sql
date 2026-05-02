@@ -1,0 +1,8 @@
+-- Add migration script here
+CREATE TABLE image_captchas (
+    id VARCHAR(255) PRIMARY KEY,
+    answer_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN NOT NULL DEFAULT FALSE
+);
