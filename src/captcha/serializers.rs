@@ -62,19 +62,19 @@ impl CaptchaResponse {
 
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct VerifyCaptchaRequest {
+pub struct VerifyCaptchaSerializer {
     pub captcha_id: String,
     pub answer: String,
 }
 
 
-impl VerifyCaptchaRequest {
+impl VerifyCaptchaSerializer {
     /// 验证用户提交的验证码答案是否正确.
     /// Ok(true) 表示验证通过;
     /// Ok(false) 表示验证失败, 包括验证码过期或答案错误;
     /// Err(e) 表示发生内部错误, 例如数据库查询失败;
-    pub async fn verify(State(pool): State<PgPool>, Json(request): Json<VerifyCaptchaRequest>) -> Result<bool, anyhow::Error> {
-        let VerifyCaptchaRequest { captcha_id, answer } = request;
+    pub async fn verify(State(pool): State<PgPool>, Json(request): Json<VerifyCaptchaSerializer>) -> Result<bool, anyhow::Error> {
+        let VerifyCaptchaSerializer { captcha_id, answer } = request;
 
         // 从数据库中查询对应的 hashed_answer 和 expires_at
         let record = sqlx::query!(

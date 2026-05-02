@@ -1,7 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use sqlx::PgPool;
 
-use crate::captcha::serializers::{CaptchaResponse, VerifyCaptchaRequest};
+use crate::captcha::serializers::{CaptchaResponse, VerifyCaptchaSerializer};
 
 
 pub async fn get_captcha(State(pool): State<PgPool>) -> impl IntoResponse {
@@ -15,8 +15,8 @@ pub async fn get_captcha(State(pool): State<PgPool>) -> impl IntoResponse {
 }
 
 
-pub async fn verify_captcha(State(pool): State<PgPool>, Json(request): Json<crate::captcha::serializers::VerifyCaptchaRequest>) -> impl IntoResponse {
-    let result = VerifyCaptchaRequest::verify(State(pool), Json(request)).await;
+pub async fn verify_captcha(State(pool): State<PgPool>, Json(serializer): Json<VerifyCaptchaSerializer>) -> impl IntoResponse {
+    let result = VerifyCaptchaSerializer::verify(State(pool), Json(serializer)).await;
 
     match result {
         Ok(true) => (StatusCode::OK, "Captcha verified").into_response(),
