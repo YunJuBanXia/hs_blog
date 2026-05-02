@@ -7,6 +7,16 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 
+#[derive(Debug)]
+pub enum CaptchaError {
+    NotFound,
+    Expired,
+    AlreadyUsed,
+    WrongAnswer,
+    DatabaseError(sqlx::Error),
+}
+
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CaptchaResponse {
     pub captcha_id: String,
@@ -73,7 +83,7 @@ impl VerifyCaptchaSerializer {
     /// Ok(true) 表示验证通过;
     /// Ok(false) 表示验证失败, 包括验证码过期或答案错误;
     /// Err(e) 表示发生内部错误, 例如数据库查询失败;
-    pub async fn verify(State(pool): State<PgPool>, Json(request): Json<VerifyCaptchaSerializer>) -> Result<bool, anyhow::Error> {
+    pub async fn verify(State(pool): State<PgPool>, Json(request): Json<VerifyCaptchaSerializer>) -> Result<(), CaptchaError> {
         let VerifyCaptchaSerializer { captcha_id, answer } = request;
 
         // 从数据库中查询对应的 hashed_answer 和 expires_at
@@ -82,12 +92,31 @@ impl VerifyCaptchaSerializer {
             captcha_id
         )
         .fetch_optional(&pool)
-        .await?;
+        .await;
+
+        if let Err(e) = record {
+            return Err(CaptchaError::DatabaseError(e));
+        }
+        // 排除查询错误, 直接unwrap
+        let record = record.unwrap();
 
         if let Some(record) = record {
             // 检查验证码是否过期
             if Utc::now() > record.expires_at {
-                return Ok(false);
+                return Err(CaptchaError::Expired);
+            }
+
+            // 检查验证码是否已被使用
+            let is_used = sqlx::query_scalar!(
+                "SELECT is_used FROM image_captchas WHERE id = $1",
+                captcha_id
+            )
+            .fetch_one(&pool)
+            .await;
+
+            if let Ok(true) = is_used {
+                // 验证码已被使用, 不能再次验证, 直接返回
+                return Err(CaptchaError::AlreadyUsed);
             }
 
             // 对用户输入的 answer 进行哈希
@@ -96,10 +125,22 @@ impl VerifyCaptchaSerializer {
             let hashed_input: String = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect();
 
             // 比较哈希值
-            Ok(hashed_input == record.answer_hash)
+            let is_match = hashed_input == record.answer_hash;
+            if is_match {
+                // 将 is_used 字段更新为 true
+                match sqlx::query!(
+                    "UPDATE image_captchas SET is_used = true WHERE id = $1",
+                    captcha_id
+                ).execute(&pool).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(CaptchaError::DatabaseError(e)),
+                }
+            } else {
+                Err(CaptchaError::WrongAnswer)
+            }
         } else {
             // 没有找到对应的验证码记录
-            Err(anyhow::anyhow!("Captcha ID {} does not exist", captcha_id))
+            Err(CaptchaError::NotFound)
         }
     }
 }

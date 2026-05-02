@@ -1,7 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use sqlx::PgPool;
 
-use crate::captcha::serializers::{CaptchaResponse, VerifyCaptchaSerializer};
+use crate::captcha::serializers::{CaptchaError, CaptchaResponse, VerifyCaptchaSerializer};
 
 
 pub async fn get_captcha(State(pool): State<PgPool>) -> impl IntoResponse {
@@ -19,9 +19,14 @@ pub async fn verify_captcha(State(pool): State<PgPool>, Json(serializer): Json<V
     let result = VerifyCaptchaSerializer::verify(State(pool), Json(serializer)).await;
 
     match result {
-        Ok(true) => (StatusCode::OK, "Captcha verified").into_response(),
-        Ok(false) => (StatusCode::BAD_REQUEST, "Invalid captcha").into_response(),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to verify captcha").into_response()
+        Ok(_) => (StatusCode::OK, "Captcha verified").into_response(),
+        Err(e) => match e {
+            CaptchaError::NotFound => (StatusCode::NOT_FOUND, "Captcha not found").into_response(),
+            CaptchaError::Expired => (StatusCode::BAD_REQUEST, "Captcha expired").into_response(),
+            CaptchaError::AlreadyUsed => (StatusCode::BAD_REQUEST, "Captcha already used").into_response(),
+            CaptchaError::WrongAnswer => (StatusCode::BAD_REQUEST, "Wrong captcha answer").into_response(),
+            CaptchaError::DatabaseError(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response(),
+        }   
     }
 }
 
