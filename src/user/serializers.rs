@@ -1,19 +1,8 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use axum::extract::State;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-
-
-/// 这个 trait 定义了一个 validate 方法, 用于验证请求数据的合法性,
-/// 实现这个 trait 的结构体需要提供 validate 方法的具体实现, 来检查字段是否满足特定的条件, 例如用户名和邮箱的格式, 密码的强度等,
-/// Ok(true) 表示验证通过, Ok(false) 表示验证失败
-/// Err(e) 表示发生内部错误
-#[async_trait]
-pub trait Validate {
-    async fn validate(&self, State(pool): State<PgPool>) -> Result<bool, anyhow::Error>;
-}
 
 
 #[derive(Debug, Serialize)]
@@ -34,48 +23,72 @@ pub struct UserRegisterSerializer {
 }
 
 
-#[async_trait]
-impl Validate for UserRegisterSerializer {
-    async fn validate(&self, State(pool): State<PgPool>) -> Result<bool, anyhow::Error> {
+pub enum UserRegisterError {
+    InvalidUsername,
+    InvalidEmail,
+    InvalidPassword,
+    UsernameAlreadyExists,
+    EmailAlreadyExists,
+    DatabaseError(sqlx::Error),
+}
+
+
+impl UserRegisterSerializer {
+    pub async fn validate(&self, State(pool): State<PgPool>) -> Result<(), UserRegisterError> {
         // 验证用户名: 将输入转为小写, 长度范围 3-50, 只能包含字母, 数字, 下划线, 以及是否与已有用户冲突
         let username = self.username.to_lowercase();
         if username.len() < 3 || username.len() > 50 {
-            return Ok(false);
+            return Err(UserRegisterError::InvalidUsername);
         }
         if !username.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return Ok(false);
+            return Err(UserRegisterError::InvalidUsername);
         }
         // 数据库查询, 检查用户名是否已存在
         let is_user_exists = sqlx::query_scalar!(
             "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)",
             username
-        ).fetch_one(&pool).await?.unwrap_or(false);
-        if !is_user_exists {
-            return Ok(false);
+        ).fetch_one(&pool).await;
+        if let Err(e) = is_user_exists {
+            return Err(UserRegisterError::DatabaseError(e));
+        }
+        // 排除查询错误, 直接unwrap
+        // 若结果为 None, 则表示查询成功但没有匹配的用户, 即用户名可用;
+        // 若结果为 Some(true), 则表示用户名已存在;
+        // 若结果为 Some(false), 则表示用户名不存在, 但查询成功
+        let is_user_exists = is_user_exists.unwrap().unwrap_or(false);
+
+        if is_user_exists {
+            return Err(UserRegisterError::UsernameAlreadyExists);
         }
 
 
         // 验证邮箱: 将输入转为小写, 使用正则表达式检查格式, 以及是否与已有用户冲突
         let email = self.email.to_lowercase();
-        let email_regex = regex::Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$")?;
+        let email_regex = regex::Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$").unwrap();
         if !email_regex.is_match(&email) {
-            return Ok(false);
+            return Err(UserRegisterError::InvalidEmail);
         }
         // 数据库查询, 检查邮箱是否已存在
         let is_email_exists = sqlx::query_scalar!(
             "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
             email
-        ).fetch_one(&pool).await?.unwrap_or(false);
+        ).fetch_one(&pool).await;
+
+        if let Err(e) = is_email_exists {
+            return Err(UserRegisterError::DatabaseError(e));
+        }
+
+        let is_email_exists = is_email_exists.unwrap().unwrap_or(false);
 
         if is_email_exists {
-            return Ok(false);
+            return Err(UserRegisterError::EmailAlreadyExists);
         }
 
 
         // 验证密码: 长度至少 8, 包含大写字母, 小写字母, 数字, 和特殊字符 其中两者或以上
         let raw_pwd = &self.raw_password;
         if raw_pwd.len() < 8 {
-            return Ok(false);
+            return Err(UserRegisterError::InvalidPassword);
         }
         let has_upper = raw_pwd.chars().any(|c| c.is_uppercase());
         let has_lower = raw_pwd.chars().any(|c| c.is_lowercase());
@@ -86,10 +99,10 @@ impl Validate for UserRegisterSerializer {
             .filter(|&&x| x)
             .count() >= 2;
         if !is_valid_password {
-            return Ok(false);
+            return Err(UserRegisterError::InvalidPassword);
         }
         
         // 所有验证通过
-        Ok(true)
+        Ok(())
     }
 }
