@@ -15,8 +15,6 @@ pub struct User {
     created_at: DateTime<Utc>,
     is_active: bool,  // 用户注销不删除数据, 而是将该字段标记为 false
     is_admin: bool,   // 是否管理员用户
-    is_email_varified: bool,  // 邮箱是否已验证
-    email_varificated_at: Option<DateTime<Utc>>,  // 邮箱验证时间
 }
 
 
@@ -25,7 +23,7 @@ impl User {
         let pwd = Password::new(raw_password);
         let password_hash = pwd.0.clone();
         let created_at = Utc::now();
-        Self { id, username, email, password_hash, created_at, is_active: true, is_admin: false, is_email_varified: false, email_varificated_at: None }
+        Self { id, username, email, password_hash, created_at, is_active: true, is_admin: false }
     }
 
     
@@ -55,7 +53,7 @@ impl User {
     pub async fn from_id(id: i32, State(pool): State<PgPool>) -> Result<Self> {
         let result = sqlx::query_as!(
             User,
-            "SELECT id, username, email, password_hash, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\", is_active, is_admin, is_email_varified, email_varificated_at as \"email_varificated_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
+            "SELECT id, username, email, password_hash, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\", is_active, is_admin FROM users WHERE id = $1",
             id
         ).fetch_one(&pool).await;
         
@@ -66,6 +64,19 @@ impl User {
             }
         }
     }
+
+
+    pub async fn save(&self, State(pool): State<PgPool>) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "UPDATE users SET username = $1, email = $2, password_hash = $3, is_active = $4, is_admin = $5 WHERE id = $6",
+            self.username,
+            self.email,
+            self.password_hash,
+            self.is_active,
+            self.is_admin,
+            self.id
+        ).execute(&pool).await?;
+
+        Ok(())
+    }
 }
-
-
