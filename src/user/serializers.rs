@@ -1,5 +1,5 @@
 use anyhow::Result;
-use axum::extract::State;
+use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
@@ -135,7 +135,7 @@ impl UserLoginSerializer {
             captcha_id: self.captcha_id.to_owned(),
             answer: self.answer.to_owned(),
         };
-        if let Err(e) = VerifyCaptchaSerializer::verify(State(pool.clone()), axum::Json(serializer)).await {
+        if let Err(e) = VerifyCaptchaSerializer::verify(State(pool.clone()), Json(serializer)).await {
             return Err(UserLoginError::CaptchaVerificationFailed(e));
         }
 
