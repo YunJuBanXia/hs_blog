@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
+use crate::{captcha::serializers::{CaptchaError, VerifyCaptchaSerializer}, user::models::User};
+
 
 #[derive(Debug, Serialize)]
 pub struct UserResponse {
@@ -85,7 +87,7 @@ impl UserRegisterSerializer {
         }
 
 
-        // 验证密码: 长度至少 8, 包含大写字母, 小写字母, 数字, 和特殊字符 其中两者或以上
+        // 验证密码: 长度至少 8, 包含大写字母, 小写字母, 数字, 和下划线 其中两者或以上
         let raw_pwd = &self.raw_password;
         if raw_pwd.len() < 8 {
             return Err(UserRegisterError::InvalidPassword);
@@ -93,7 +95,7 @@ impl UserRegisterSerializer {
         let has_upper = raw_pwd.chars().any(|c| c.is_uppercase());
         let has_lower = raw_pwd.chars().any(|c| c.is_lowercase());
         let has_digit = raw_pwd.chars().any(|c| c.is_ascii_digit());
-        let has_special = raw_pwd.chars().any(|c| "!@#$%^&*()-+_".contains(c));
+        let has_special = raw_pwd.chars().any(|c| "_".contains(c));
         let is_valid_password = [has_upper, has_lower, has_digit, has_special]
             .iter()
             .filter(|&&x| x)
@@ -104,5 +106,68 @@ impl UserRegisterSerializer {
         
         // 所有验证通过
         Ok(())
+    }
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserLoginSerializer {
+    pub certificate: String,  // 用户名或邮箱
+    pub raw_password: String,
+    pub captcha_id: String,
+    pub answer: String,
+}
+
+
+pub enum UserLoginError {
+    InvalidCertificate,
+    WrongPassword,
+    UserBanned,
+    CaptchaVerificationFailed(CaptchaError),
+    DatabaseError(sqlx::Error),
+}
+
+
+impl UserLoginSerializer {
+    pub async fn validate(&self, State(pool): State<PgPool>) -> Result<(), UserLoginError> {
+        // 验证码校验
+        let serializer = VerifyCaptchaSerializer {
+            captcha_id: self.captcha_id.to_owned(),
+            answer: self.answer.to_owned(),
+        };
+        if let Err(e) = VerifyCaptchaSerializer::verify(State(pool.clone()), axum::Json(serializer)).await {
+            return Err(UserLoginError::CaptchaVerificationFailed(e));
+        }
+
+        // 验证用户名/邮箱
+        let certificate = self.certificate.to_lowercase();
+        if !(certificate.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '@' || c == '.')) {
+            // 输入的用户名/邮箱格式不合法, 直接返回错误, 不进行数据库查询
+            return Err(UserLoginError::InvalidCertificate);
+        }
+        let record = sqlx::query_as!(
+            User,
+            "SELECT * FROM users WHERE username = $1 OR email = $1",
+            certificate
+        )
+        .fetch_optional(&pool)
+        .await;
+        
+        if let Err(e) = record {
+            return Err(UserLoginError::DatabaseError(e));
+        }
+        
+        match record.unwrap() {
+            Some(user) => {
+                if !user.check_password(self.raw_password.to_owned()) {
+                    Err(UserLoginError::WrongPassword)
+                } else if !user.is_active {
+                    Err(UserLoginError::UserBanned)
+                } else {
+                    Ok(())
+                }
+            }
+            None => Err(UserLoginError::InvalidCertificate),
+        }
     }
 }
