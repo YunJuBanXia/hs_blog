@@ -1,4 +1,5 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
+use chrono::Utc;
 use sqlx::PgPool;
 use validator::Validate;
 
@@ -22,7 +23,10 @@ pub async fn list_users(State(pool): State<PgPool>) -> impl IntoResponse {
 }
 
 
-pub async fn get_user(Path(id): Path<i32>, State(pool): State<PgPool>) -> impl IntoResponse {
+pub async fn get_user(
+    Path(id): Path<i32>,
+    State(pool): State<PgPool>
+) -> impl IntoResponse {
     let result = sqlx::query_as!(
         UserResponse,
         "SELECT id, username, email, created_at as \"created_at!: chrono::DateTime<chrono::Utc>\" FROM users WHERE id = $1",
@@ -39,7 +43,10 @@ pub async fn get_user(Path(id): Path<i32>, State(pool): State<PgPool>) -> impl I
 }
 
 
-pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, State(pool): State<PgPool>) -> impl IntoResponse {
+pub async fn list_users_paged(
+    Path((page, page_size)): Path<(i64, i64)>,
+    State(pool): State<PgPool>
+) -> impl IntoResponse {
     let offset = (page - 1) * page_size;
     let result: Result<Vec<UserResponse>, sqlx::Error> = sqlx::query_as!(
         UserResponse,
@@ -57,9 +64,13 @@ pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, State(p
 }
 
 
-/// 在调用该handler前, 应该先通过 crate::captcha::handlers::verify_captcha 来验证用户提交的验证码, 以防止恶意注册
-pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
-    // TODO: 校验邮箱验证码
+/// 在调用该handler前, 应该先通过 crate::mail::handlers::send_verification_email 发送邮箱验证码, 并将验证码存储在数据库中, 用户注册时需要提供正确的验证码才能完成注册.
+#[axum::debug_handler]
+pub async fn register(
+    State(pool): State<PgPool>,
+    Json(serializer): Json<UserRegisterSerializer>
+) -> Result<impl IntoResponse, AppError> {
+    // 校验邮箱验证码
     let is_email_exist = sqlx::query_scalar!(
         "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
         serializer.email
@@ -87,7 +98,7 @@ pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, State
 
     match record {
         Some(record) => {
-            if record.expires_at < chrono::Utc::now() {
+            if record.expires_at < Utc::now() {
                 return Err(AppError::Expired("email_verification_code".to_string()));
             }
             if record.code != serializer.email_verification_code {
@@ -123,7 +134,7 @@ pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, State
 }
 
 
-pub async fn user_login() -> impl IntoResponse {
+pub async fn login() -> impl IntoResponse {
     // TODO: 实现用户登录功能, 包括验证用户名/邮箱和密码, 以及生成 JWT token 等
     (StatusCode::NOT_IMPLEMENTED, "Login functionality not implemented yet").into_response()
 }
