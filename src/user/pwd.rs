@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use argon2::{
     Argon2, PasswordHasher, PasswordVerifier, password_hash::{SaltString, rand_core::OsRng}
 };
+use validator::ValidationError;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +15,23 @@ impl Password {
         Self(Self::hash(raw))
     }
 
+
+    pub fn validate_raw_password(raw: &String) -> Result<(), ValidationError> {
+        if raw.len() < 8 {
+            return Err(ValidationError::new("invalid_password_length").with_message("Password must be at least 8 characters long".into()));
+        }
+
+        let has_upper = raw.chars().any(|c| c.is_uppercase());
+        let has_lower = raw.chars().any(|c| c.is_lowercase());
+        let has_digit = raw.chars().any(|c| c.is_ascii_digit());
+        let has_underscore = raw.chars().any(|c| c == '_');
+
+        if [has_upper, has_lower, has_digit, has_underscore].iter().filter(|&&x| x).count() < 2 {
+            return Err(ValidationError::new("invalid_password_complexity").with_message("Password must include at least 2 of the following: uppercase letters, lowercase letters, digits, underscores".into()));
+        }
+
+        Ok(())
+    }
 
     pub fn verify(&self, raw: String) -> bool {
         let parsed_hash = argon2::PasswordHash::new(&self.0)

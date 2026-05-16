@@ -1,16 +1,30 @@
 use anyhow::Result;
 use axum::extract::State;
+use regex::Regex;
 use serde::{Serialize, Deserialize};
 use sqlx::PgPool;
 use crate::user::pwd::Password;
 use chrono::{DateTime, Utc};
+use validator::{Validate, ValidationError};
+use lazy_static::lazy_static;
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+lazy_static!(
+    static ref USERNAME_REGEX: Regex = Regex::new(r"^[a-zA-Z0-9_]+$").unwrap();
+    static ref EMAIL_REGEX: Regex = Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$").unwrap();
+);
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, Validate)]
 pub struct User {
     pub id: i32,
+
+    #[validate(custom(function = "User::validate_username"))]
     pub username: String,  // 全小写, 不允许重复
+
+    #[validate(email)]
     pub email: String,  // 全小写, 不允许重复
+
     pub password_hash: String,  // 存储哈希后的密码
     pub created_at: DateTime<Utc>,
     pub is_active: bool,  // 用户注销不删除数据, 而是将该字段标记为 false
@@ -24,6 +38,19 @@ impl User {
         let password_hash = pwd.0.clone();
         let created_at = Utc::now();
         Self { id, username, email, password_hash, created_at, is_active: true, is_admin: false }
+    }
+
+
+    pub fn validate_username(username: &String) -> Result<(), ValidationError> {
+        if !USERNAME_REGEX.is_match(&username) {
+            return Err(ValidationError::new("Username can only contain letters, numbers, and underscores"));
+        }
+        
+        if username.len() < 3 || username.len() > 20 {
+            return Err(ValidationError::new("Username must be between 3 and 20 characters long"));
+        }
+
+        Ok(())
     }
 
     
