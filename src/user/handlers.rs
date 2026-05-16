@@ -60,8 +60,46 @@ pub async fn list_users_paged(Path((page, page_size)): Path<(i64, i64)>, State(p
 /// 在调用该handler前, 应该先通过 crate::captcha::handlers::verify_captcha 来验证用户提交的验证码, 以防止恶意注册
 pub async fn user_register(Json(serializer): Json<UserRegisterSerializer>, State(pool): State<PgPool>) -> Result<impl IntoResponse, AppError> {
     // TODO: 校验邮箱验证码
+    let is_email_exist = sqlx::query_scalar!(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
+        serializer.email
+    )
+        .fetch_one(&pool)
+        .await?;
 
-    // 验证输入数据
+    // 数据库查询失败
+    if is_email_exist.is_none() {
+        return Err(AppError::DatabaseError(sqlx::Error::RowNotFound));
+    }
+    // 邮箱已存在
+    if let Some(true) = is_email_exist {
+        return Err(AppError::Conflict("email".to_string()));
+    }
+
+    // 数据库查询成功, 但邮箱不存在, 可以继续注册
+    // 验证邮箱验证码
+    let record = sqlx::query!(
+        "SELECT code, expires_at FROM email_verification_codes WHERE email = $1",
+        serializer.email
+    )
+        .fetch_optional(&pool)
+        .await?;
+
+    match record {
+        Some(record) => {
+            if record.expires_at < chrono::Utc::now() {
+                return Err(AppError::Expired("email_verification_code".to_string()));
+            }
+            if record.code != serializer.email_verification_code {
+                return Err(AppError::Invalid("email_verification_code".to_string()));
+            }
+        }
+        None => {
+            return Err(AppError::NotFound("email_verification_code".to_string()));
+        }
+    }
+
+    // 验证输入数据合法性
     if let Err(errors) = serializer.validate() {
         return Err(AppError::ValidationError(errors));
     }
