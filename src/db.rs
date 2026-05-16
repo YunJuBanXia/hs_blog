@@ -23,7 +23,8 @@ pub fn handle_db_error(error: sqlx::Error) -> AppError {
             if code == "23505" {
                 if db_err.message().contains("username") {
                     return AppError::Conflict("username".to_string());
-                } else if db_err.message().contains("email") {
+                }
+                if db_err.message().contains("email") {
                     return AppError::Conflict("email".to_string());
                 }
             }
