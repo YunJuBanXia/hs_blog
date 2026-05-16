@@ -9,6 +9,9 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     ValidationError(#[from] validator::ValidationErrors),  // 400 Bad Request
 
+    #[error("Invalid input: {0}")]
+    Invalid(String),  // 400 Bad Request
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),  // 403 Forbidden
 
@@ -17,6 +20,9 @@ pub enum AppError {
 
     #[error("Conflict: {0}")]
     Conflict(String),  // 409 Conflict
+
+    #[error("Expired: {0}")]
+    Expired(String),  // 410 Gone
 
     #[error("Database error: {0}")]
     DatabaseError(#[from] sqlx::Error),  // 500 Internal Server Error
@@ -48,9 +54,10 @@ impl IntoResponse for AppError {
                 (StatusCode::BAD_REQUEST, "Validation failed".into(), Some(map))
             }
 
+            AppError::Invalid(err) => (StatusCode::BAD_REQUEST, err, None),
             AppError::PermissionDenied(err) => (StatusCode::FORBIDDEN, err, None),
             AppError::NotFound(err) => (StatusCode::NOT_FOUND, err, None),
-
+            AppError::Expired(err) => (StatusCode::GONE, err, None),
             AppError::Conflict(field) => {
                 let mut map = HashMap::new();
                 map.insert(field.clone(), vec![format!("{} already exists", field)]);
