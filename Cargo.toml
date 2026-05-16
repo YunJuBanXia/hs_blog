@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 argon2 = "0.5.3"
-axum = "0.8.8"
+axum = { version = "0.8.8", features = ["macros"] }
 base64 = "0.22.1"
 captcha-rs = "0.5.0"
 chrono = { version = "0.4.44", features = ["serde"] }
