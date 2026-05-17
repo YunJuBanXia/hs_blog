@@ -24,11 +24,12 @@ lazy_static!(
 );
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct EmailVerificationCode {
     pub id: i32,
     pub email: String,
     pub code: String,
+    pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
