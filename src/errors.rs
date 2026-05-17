@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use axum::{Json, http::StatusCode, response::{IntoResponse, Response}};
+use lettre::transport::smtp;
 use serde::{Deserialize, Serialize};
 
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
     #[error("Validation error: {0}")]
-    ValidationError(#[from] validator::ValidationErrors),  // 400 Bad Request
+    Validation(#[from] validator::ValidationErrors),  // 400 Bad Request
 
     #[error("Invalid input: {0}")]
     Invalid(String),  // 400 Bad Request
@@ -25,10 +26,13 @@ pub enum AppError {
     Expired(String),  // 410 Gone
 
     #[error("Database error: {0}")]
-    DatabaseError(#[from] sqlx::Error),  // 500 Internal Server Error
+    Database(#[from] sqlx::Error),  // 500 Internal Server Error
+
+    #[error("SMTP error: {0}")]
+    Smtp(#[from] smtp::Error),  // 500 Internal Server Error
 
     #[error("Internal server error: {0}")]
-    InternalServerError(#[from] anyhow::Error),  // 500 Internal Server Error
+    Internal(#[from] anyhow::Error),  // 500 Internal Server Error
 }
 
 
@@ -43,7 +47,7 @@ pub struct ApiErrorResponse {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message, field_errors) = match self {
-            AppError::ValidationError(errs) => {
+            AppError::Validation(errs) => {
                 let mut map = HashMap::new();
                 for (field, errors) in errs.field_errors() {
                     let messages = errors.iter()
@@ -65,8 +69,9 @@ impl IntoResponse for AppError {
                 (StatusCode::CONFLICT, "Resource conflict".into(), Some(map))
             },
 
-            AppError::DatabaseError(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", err), None),
-            AppError::InternalServerError(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Internal server error: {}", err), None),
+            AppError::Database(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", err), None),
+            AppError::Smtp(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("SMTP error: {}", err), None),
+            AppError::Internal(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Internal server error: {}", err), None),
         };
 
         Json(ApiErrorResponse {

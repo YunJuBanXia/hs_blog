@@ -80,7 +80,7 @@ pub async fn register(
 
     // 数据库查询失败
     if is_email_exist.is_none() {
-        return Err(AppError::DatabaseError(sqlx::Error::RowNotFound));
+        return Err(AppError::Database(sqlx::Error::RowNotFound));
     }
     // 邮箱已存在
     if let Some(true) = is_email_exist {
@@ -112,7 +112,7 @@ pub async fn register(
 
     // 验证输入数据合法性
     if let Err(errors) = serializer.validate() {
-        return Err(AppError::ValidationError(errors));
+        return Err(AppError::Validation(errors));
     }
 
     // 对密码进行哈希

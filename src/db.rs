@@ -30,7 +30,7 @@ pub fn handle_db_error(error: sqlx::Error) -> AppError {
             }
         }
     }
-    AppError::DatabaseError(error)
+    AppError::Database(error)
 }
 
 
