@@ -33,8 +33,8 @@ impl Password {
         Ok(())
     }
 
-    pub fn verify(&self, raw: String) -> bool {
-        let parsed_hash = argon2::PasswordHash::new(&self.0)
+    pub fn verify(raw: String, hash: String) -> bool {
+        let parsed_hash = argon2::PasswordHash::new(&hash)
             .expect("stored password hash should be valid");
 
         Argon2::default()
@@ -60,10 +60,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_pwd_hash_and_verify() {
-        let raw = "my_password".to_string();
-        let pwd = Password::new(raw.clone());
+    fn test_password_hashing_and_verification() {
+        let raw_password = "P@ssw0rd".to_string();
+        let password = Password::new(raw_password.clone());
 
-        assert!(pwd.verify(raw));
+        // 验证正确密码
+        assert!(Password::verify(raw_password.clone(), password.0.clone()));
+
+        // 验证错误密码
+        assert!(!Password::verify("wrongpassword".to_string(), password.0.clone()));
     }
 }
