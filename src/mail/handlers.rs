@@ -47,7 +47,7 @@ pub async fn send_verification_email(
     // 将验证码存入数据库
     sqlx::query!(
         r#"
-        INSERT INTO email_verification_codes (email, code ,expires_at)
+        INSERT INTO email_verification_codes (email, code, expires_at)
         VALUES ($1, $2, $3)
         ON CONFLICT (email)
         DO UPDATE SET
