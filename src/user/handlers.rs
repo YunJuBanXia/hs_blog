@@ -1,9 +1,16 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
-use chrono::Utc;
+use chrono::{Duration, Utc};
+use lazy_static::lazy_static;
 use sqlx::PgPool;
 use validator::Validate;
 
-use crate::{db::handle_db_error, errors::AppError, user::{pwd::Password, serializers::{UserRegisterSerializer, UserResponse}}};
+use crate::{db::handle_db_error, errors::AppError, user::{jwt::{self}, pwd::Password, serializers::{UserLoginResponse, UserLoginSerializer, UserRegisterSerializer, UserResponse}}};
+
+
+lazy_static!(
+    static ref JWT_ACCESS_TOKEN_EXPIRATION_HOURS: i64 = dotenvy::var("JWT_ACCESS_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "2".to_string()).parse::<i64>().unwrap_or(2);
+    static ref JWT_REFRESH_TOKEN_EXPIRATION_HOURS: i64 = dotenvy::var("JWT_REFRESH_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "168".to_string()).parse::<i64>().unwrap_or(168);
+);
 
 
 pub async fn list_users(State(pool): State<PgPool>) -> impl IntoResponse {
@@ -134,7 +141,42 @@ pub async fn register(
 }
 
 
-pub async fn login() -> impl IntoResponse {
-    // TODO: 实现用户登录功能, 包括验证用户名/邮箱和密码, 以及生成 JWT token 等
-    (StatusCode::NOT_IMPLEMENTED, "Login functionality not implemented yet").into_response()
+#[axum::debug_handler]
+pub async fn login(
+    State(pool): State<PgPool>, 
+    Json(serializer): Json<UserLoginSerializer>
+) -> Result<impl IntoResponse, AppError> {
+    // 基础格式校验
+    serializer.validate().map_err(|e| AppError::Validation(e))?;
+
+    // 数据库检索
+    let user = sqlx::query!(
+        "SELECT id, password_hash FROM users WHERE username = $1 OR email = $1",
+        serializer.certificate
+    )
+        .fetch_optional(&pool)
+        .await?
+        .ok_or(AppError::InvalidCredentials("login_certificate".to_string()))?;
+
+    // 验证密码
+    let is_password_valid = Password::verify(serializer.raw_password, user.password_hash);
+    if !is_password_valid {
+        return Err(AppError::Invalid("password".to_string()));
+    }
+
+    // 生成 JWT token
+    let issued_at = Utc::now();
+    let access_duration = Duration::hours(*JWT_ACCESS_TOKEN_EXPIRATION_HOURS);
+    let refresh_duration = Duration::hours(*JWT_REFRESH_TOKEN_EXPIRATION_HOURS);
+
+    let access_token = jwt::generate_token(user.id, issued_at + access_duration, issued_at).map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate JWT token: {}", e)))?;
+    let refresh_token = jwt::generate_token(user.id, issued_at + refresh_duration, issued_at).map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate JWT token: {}", e)))?;
+
+    // 构造响应
+    let resp = UserLoginResponse {
+        access_token,
+        refresh_token,
+    };
+
+    Ok((StatusCode::OK, Json(resp)))
 }
