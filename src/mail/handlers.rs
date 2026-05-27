@@ -1,5 +1,5 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use lazy_static::lazy_static;
 use lettre::{AsyncTransport, Message};
 use sqlx::PgPool;
@@ -21,8 +21,23 @@ pub async fn send_verification_email(
     // 验证输入数据合法性(邮箱合法性)
     serializer.validate().map_err(|e| AppError::Validation(e))?;
 
-    // TODO: 限制发送频率
-    
+    // 限制发送频率
+    // 60 秒内同一邮箱只能发送一次验证码
+    let last_updated: Option<DateTime<Utc>> = sqlx::query_scalar!(
+        "SELECT updated_at FROM email_verification_codes WHERE email = $1",
+        serializer.email
+    )
+        .fetch_optional(&pool)
+        .await?;
+
+    if let Some(last_time) = last_updated {
+        let duration = dotenvy::var("EMAIL_VERIFICATION_CODE_RATE_LIMIT_SECONDS").unwrap_or_else(|_| "60".to_string()).parse::<i64>().unwrap_or(60);
+        if Utc::now() < last_time + Duration::seconds(duration) {
+            let retry_after = duration - Utc::now().signed_duration_since(last_time).num_seconds();
+            return Err(AppError::TooManyRequests(format!("Please wait {} seconds before requesting another code", retry_after)));
+        }
+    }
+
     let new_code = EmailVerificationCode::generate_code();
     let expires_at = Utc::now() + Duration::minutes(*EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES);
 
