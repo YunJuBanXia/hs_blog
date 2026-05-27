@@ -3,7 +3,7 @@ use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use validator::Validate;
 
-use crate::{db::handle_db_error, errors::AppError, user::{jwt::{self}, pwd::Password, serializers::{UserLoginResponse, UserLoginSerializer, UserRegisterSerializer, UserResponse}}};
+use crate::{db::handle_db_error, errors::AppError, user::{jwt::{self, decode_token}, pwd::Password, serializers::{RefreshTokenResponse, RefreshTokenSerializer, UserLoginResponse, UserLoginSerializer, UserRegisterSerializer, UserResponse}}};
 
 
 pub async fn list_users(State(pool): State<PgPool>) -> impl IntoResponse {
@@ -172,4 +172,24 @@ pub async fn login(
     };
 
     Ok((StatusCode::OK, Json(resp)))
+}
+
+
+#[axum::debug_handler]
+pub async fn refresh_token(
+    Json(serializer): Json<RefreshTokenSerializer>
+) -> Result<impl IntoResponse, AppError> {
+    // 解密并校验 refresh token
+    let token_data = decode_token(&serializer.refresh_token).map_err(|_| AppError::InvalidToken)?;
+
+    // 验证通过, 签发新的 Access Token
+    let user_id = token_data.sub;
+
+    let now = Utc::now();
+    let access_duration = Duration::hours(*jwt::JWT_ACCESS_TOKEN_EXPIRATION_HOURS);
+    
+    let new_token = jwt::generate_token(user_id, now + access_duration, now)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate new JWT token: {}", e)))?;
+
+    Ok((StatusCode::OK, Json(RefreshTokenResponse { access_token: new_token })))
 }

@@ -1,8 +1,11 @@
 use std::sync::LazyLock;
 
+use axum::{extract::FromRequestParts, http::request::Parts};
 use chrono::{DateTime, Utc};
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, encode};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, decode, encode};
 use serde::{Deserialize, Serialize};
+
+use crate::errors::AppError;
 
 
 pub static ENCODING_KEY: LazyLock<EncodingKey> = LazyLock::new(|| {
@@ -39,3 +42,56 @@ pub fn generate_token(user_id: i32, expires_at: DateTime<Utc>, issued_at: DateTi
 
     encode(&header, &claims, &ENCODING_KEY)
 }
+
+
+pub fn decode_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let token_data = decode::<Claims>(
+        token, 
+        &DECODING_KEY, 
+        &jsonwebtoken::Validation::new(Algorithm::RS256)
+    )?;
+
+    Ok(token_data.claims)
+}
+
+
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    pub user_id: i32,
+}
+
+
+impl<T> FromRequestParts<T> for AuthenticatedUser
+where
+    T: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts<'a, 'b>(
+        parts: &'a mut Parts,
+        _state: &'b T
+    ) -> Result<Self, Self::Rejection> {
+        let header = parts
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or(AppError::InvalidCredentials("Missing authorization header".to_string()))?;
+
+        if !header.starts_with("Bearer ") {
+            return Err(AppError::InvalidToken);
+        }
+
+        // 提取 token 并验证
+        let token = &header[7..];  // 去掉 "Bearer " 前缀
+        let token_data = decode_token(token)
+            .map_err(|_| AppError::InvalidToken)?;
+
+        Ok(AuthenticatedUser {
+            user_id: token_data.sub,
+        })
+    }
+}
+
+
+
+

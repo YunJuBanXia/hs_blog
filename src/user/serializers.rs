@@ -45,3 +45,15 @@ pub struct UserLoginResponse {
     pub access_token: String,
     pub refresh_token: String,
 }
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshTokenSerializer {
+    pub refresh_token: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshTokenResponse {
+    pub access_token: String,
+}

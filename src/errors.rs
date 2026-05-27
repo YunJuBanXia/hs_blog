@@ -16,6 +16,9 @@ pub enum AppError {
     #[error("Invalid credentials: {0}")]
     InvalidCredentials(String),  // 401 Unauthorized
 
+    #[error("Invalid token")]
+    InvalidToken,  // 401 Unauthorized
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),  // 403 Forbidden
 
@@ -66,6 +69,7 @@ impl IntoResponse for AppError {
 
             AppError::Invalid(err) => (StatusCode::BAD_REQUEST, err, None),
             AppError::InvalidCredentials(err) => (StatusCode::UNAUTHORIZED, err, None),
+            AppError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token".into(), None),
             AppError::PermissionDenied(err) => (StatusCode::FORBIDDEN, err, None),
             AppError::NotFound(err) => (StatusCode::NOT_FOUND, err, None),
             AppError::Expired(err) => (StatusCode::GONE, err, None),
