@@ -13,6 +13,9 @@ pub enum AppError {
     #[error("Invalid input: {0}")]
     Invalid(String),  // 400 Bad Request
 
+    #[error("Invalid credentials: {0}")]
+    InvalidCredentials(String),  // 401 Unauthorized
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),  // 403 Forbidden
 
@@ -24,6 +27,9 @@ pub enum AppError {
 
     #[error("Expired: {0}")]
     Expired(String),  // 410 Gone
+
+    #[error("Too many requests: {0}")]
+    TooManyRequests(String),  // 429 Too Many Requests
 
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),  // 500 Internal Server Error
@@ -59,6 +65,7 @@ impl IntoResponse for AppError {
             }
 
             AppError::Invalid(err) => (StatusCode::BAD_REQUEST, err, None),
+            AppError::InvalidCredentials(err) => (StatusCode::UNAUTHORIZED, err, None),
             AppError::PermissionDenied(err) => (StatusCode::FORBIDDEN, err, None),
             AppError::NotFound(err) => (StatusCode::NOT_FOUND, err, None),
             AppError::Expired(err) => (StatusCode::GONE, err, None),
@@ -69,6 +76,7 @@ impl IntoResponse for AppError {
                 (StatusCode::CONFLICT, "Resource conflict".into(), Some(map))
             },
 
+            AppError::TooManyRequests(err) => (StatusCode::TOO_MANY_REQUESTS, err, None),
             AppError::Database(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", err), None),
             AppError::Smtp(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("SMTP error: {}", err), None),
             AppError::Internal(err) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Internal server error: {}", err), None),
