@@ -15,6 +15,9 @@ pub static EMAIL_VERIFICATION_CODE_LENGTH: LazyLock<usize> = LazyLock::new(|| {
 pub static EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES: LazyLock<i64> = LazyLock::new(|| {
     dotenvy::var("EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES").unwrap().parse::<i64>().unwrap()
 });
+pub static EMAIL_VERIFICATION_CODE_RATE_LIMIT_MINUTES: LazyLock<i64> = LazyLock::new(|| {
+    dotenvy::var("EMAIL_VERIFICATION_CODE_RATE_LIMIT_MINUTES").unwrap().parse::<i64>().unwrap()
+});
 
 
 pub async fn send_verification_email(
@@ -34,10 +37,10 @@ pub async fn send_verification_email(
         .await?;
 
     if let Some(last_time) = last_updated {
-        let duration = dotenvy::var("EMAIL_VERIFICATION_CODE_RATE_LIMIT_SECONDS").unwrap_or_else(|_| "60".to_string()).parse::<i64>().unwrap_or(60);
-        if Utc::now() < last_time + Duration::seconds(duration) {
-            let retry_after = duration - Utc::now().signed_duration_since(last_time).num_seconds();
-            return Err(AppError::TooManyRequests(format!("Please wait {} seconds before requesting another code", retry_after)));
+        let duration = *EMAIL_VERIFICATION_CODE_RATE_LIMIT_MINUTES;
+        if Utc::now() < last_time + Duration::minutes(duration) {
+            let retry_after = duration - Utc::now().signed_duration_since(last_time).num_minutes();
+            return Err(AppError::TooManyRequests(format!("Please wait {} minutes before requesting another code", retry_after)));
         }
     }
 
