@@ -1,9 +1,7 @@
 use anyhow::Result;
 use regex::Regex;
-use serde::{Serialize, Deserialize};
-use crate::user::pwd::Password;
 use chrono::{DateTime, Utc};
-use validator::{Validate, ValidationError};
+use validator::{ValidateEmail, ValidationError};
 use lazy_static::lazy_static;
 
 
@@ -16,7 +14,6 @@ lazy_static!(
 /// User 模型, 对应数据库中的 users 表
 /// 其实这只是一个由于与数据库对应的类型, 实际并不使用这个类型进行数据交互
 /// 这个类型主要用于提供与用户相关的业务逻辑方法
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, Validate)]
 pub struct User {
     pub id: i32,
     pub username: String,  // 全小写, 不允许重复
@@ -42,8 +39,16 @@ impl User {
     }
 
 
-    pub fn check_password(&self, raw_pwd: String) -> bool {
-        let pwd_obj = Password(self.password_hash.clone());
-        pwd_obj.verify(raw_pwd)
+    pub fn validate_certificate(certificate: &String) -> Result<(), ValidationError> {
+        if certificate.contains('@') {
+            // 可能是邮箱, 调用 validator::ValidateEmail::validate_email 来验证邮箱格式
+            if !ValidateEmail::validate_email(certificate) {
+                return Err(ValidationError::new("Invalid email format"));
+            }
+        } else {
+            // 可能是用户名, 调用 validate_username 方法
+            Self::validate_username(certificate)?;
+        }
+        Ok(())
     }
 }
