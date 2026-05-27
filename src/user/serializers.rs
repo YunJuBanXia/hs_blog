@@ -34,12 +34,18 @@ pub struct UserRegisterSerializer {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct UserLoginSerializer {
+    #[validate(custom(function = "User::validate_certificate"))]
     pub certificate: String,  // 用户名或邮箱
+    
+    #[validate(custom(function = "Password::validate_raw_password"))]
     pub raw_password: String,
-    pub captcha_id: String,
-    pub answer: String,
 }
 
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserLoginResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+}
