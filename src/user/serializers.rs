@@ -9,11 +9,7 @@ use crate::{user::{models::User, pwd::Password}};
 pub struct UserResponse {
     // 使用时直接使用 Json(response) 包装即可, 不需要手动构造 Response 对象
     pub id: i32,
-
-    #[validate(custom(function = "User::validate_username"))]
     pub username: String,
-
-    #[validate(email)]
     pub email: String,
     pub created_at: DateTime<Utc>,
 }
