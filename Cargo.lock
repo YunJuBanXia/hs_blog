@@ -340,7 +340,6 @@ dependencies = [
  "dotenvy",
  "hex",
  "jsonwebtoken",
- "lazy_static",
  "lettre",
  "rand 0.10.1",
  "regex",

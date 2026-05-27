@@ -1,14 +1,17 @@
+use std::sync::LazyLock;
+
 use anyhow::Result;
 use regex::Regex;
 use chrono::{DateTime, Utc};
 use validator::{ValidateEmail, ValidationError};
-use lazy_static::lazy_static;
 
 
-lazy_static!(
-    static ref USERNAME_REGEX: Regex = Regex::new(r"^[a-zA-Z0-9_]+$").unwrap();
-    static ref EMAIL_REGEX: Regex = Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$").unwrap();
-);
+pub static USERNAME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9_]+$").unwrap()
+});
+pub static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[\w.-]+@[\w.-]+\.\w+$").unwrap()
+});
 
 
 /// User 模型, 对应数据库中的 users 表

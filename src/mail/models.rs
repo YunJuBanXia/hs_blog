@@ -1,27 +1,29 @@
+use std::sync::LazyLock;
+
 use chrono::{DateTime, Utc};
-use lazy_static::lazy_static;
 use lettre::{AsyncSmtpTransport, Tokio1Executor, transport::smtp::authentication::Credentials};
 use rand::random;
 use serde::{Deserialize, Serialize};
 
 
-lazy_static!(
-    pub static ref SMTP_TRANSPORT: AsyncSmtpTransport<Tokio1Executor> = {
-        let smtp_server: String = dotenvy::var("SMTP_SERVER").unwrap();
-        let smtp_port: u16 = dotenvy::var("SMTP_PORT").unwrap_or_else(|_| "587".to_string()).parse::<u16>().unwrap();
-        let smtp_username: String = dotenvy::var("SMTP_USERNAME").unwrap();
-        let smtp_password: String = dotenvy::var("SMTP_PASSWORD").unwrap();
+pub static SMTP_TRANSPORT: LazyLock<AsyncSmtpTransport<Tokio1Executor>> = LazyLock::new(|| {
+    let smtp_server: String = dotenvy::var("SMTP_SERVER").unwrap();
+    let smtp_port: u16 = dotenvy::var("SMTP_PORT").unwrap_or_else(|_| "587".to_string()).parse::<u16>().unwrap();
+    let smtp_username: String = dotenvy::var("SMTP_USERNAME").unwrap();
+    let smtp_password: String = dotenvy::var("SMTP_PASSWORD").unwrap();
 
-        AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_server)
-            .unwrap()
-            .port(smtp_port)
-            .credentials(Credentials::new(smtp_username, smtp_password))
-            .build()
-    };
-
-    static ref EMAIL_VERIFICATION_CODE_LENGTH: usize = dotenvy::var("EMAIL_VERIFICATION_CODE_LENGTH").unwrap().parse::<usize>().unwrap();
-    static ref CODE_CHARSET: Vec<char> = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".chars().collect();
-);
+    AsyncSmtpTransport::<Tokio1Executor>::relay(&smtp_server)
+        .unwrap()
+        .port(smtp_port)
+        .credentials(Credentials::new(smtp_username, smtp_password))
+        .build()
+});
+pub static EMAIL_VERIFICATION_CODE_LENGTH: LazyLock<usize> = LazyLock::new(|| {
+    dotenvy::var("EMAIL_VERIFICATION_CODE_LENGTH").unwrap().parse::<usize>().unwrap()
+});
+pub static CODE_CHARSET: LazyLock<Vec<char>> = LazyLock::new(|| {
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".chars().collect()
+});
 
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]

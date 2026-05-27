@@ -1,6 +1,7 @@
+use std::sync::LazyLock;
+
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use chrono::{DateTime, Duration, Utc};
-use lazy_static::lazy_static;
 use lettre::{AsyncTransport, Message};
 use sqlx::PgPool;
 use validator::Validate;
@@ -8,10 +9,12 @@ use validator::Validate;
 use crate::{errors::AppError, mail::{models::{EmailVerificationCode, SMTP_TRANSPORT}, serializers::SendVerificationEmailSerializer}};
 
 
-lazy_static!(
-    static ref EMAIL_VERIFICATION_CODE_LENGTH: usize = dotenvy::var("EMAIL_VERIFICATION_CODE_LENGTH").unwrap().parse::<usize>().unwrap();
-    static ref EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES: i64 = dotenvy::var("EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES").unwrap().parse::<i64>().unwrap();
-);
+pub static EMAIL_VERIFICATION_CODE_LENGTH: LazyLock<usize> = LazyLock::new(|| {
+    dotenvy::var("EMAIL_VERIFICATION_CODE_LENGTH").unwrap().parse::<usize>().unwrap()
+});
+pub static EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES: LazyLock<i64> = LazyLock::new(|| {
+    dotenvy::var("EMAIL_VERIFICATION_CODE_EXPIRATION_MINUTES").unwrap().parse::<i64>().unwrap()
+});
 
 
 pub async fn send_verification_email(

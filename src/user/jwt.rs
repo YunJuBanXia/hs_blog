@@ -1,20 +1,24 @@
+use std::sync::LazyLock;
+
 use chrono::{DateTime, Utc};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, encode};
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 
-lazy_static!(
-    static ref ENCODING_KEY: EncodingKey = {
-        let kp = std::fs::read_to_string("private_key_pkcs8.pem").expect("Failed to read private key");
-        EncodingKey::from_rsa_pem(kp.as_bytes()).expect("Failed to create encoding key from PEM")
-    };
-
-    static ref DECODING_KEY: DecodingKey = {
-        let kp = std::fs::read_to_string("public_key.pem").expect("Failed to read public key");
-        DecodingKey::from_rsa_pem(kp.as_bytes()).expect("Failed to create decoding key from PEM")
-    };
-);
+pub static ENCODING_KEY: LazyLock<EncodingKey> = LazyLock::new(|| {
+    let kp = std::fs::read_to_string("private_key_pkcs8.pem").expect("Failed to read private key");
+    EncodingKey::from_rsa_pem(kp.as_bytes()).expect("Failed to create encoding key from PEM")
+});
+pub static DECODING_KEY: LazyLock<DecodingKey> = LazyLock::new(|| {
+    let kp = std::fs::read_to_string("public_key.pem").expect("Failed to read public key");
+    DecodingKey::from_rsa_pem(kp.as_bytes()).expect("Failed to create decoding key from PEM")
+});
+pub static JWT_ACCESS_TOKEN_EXPIRATION_HOURS: LazyLock<i64> = LazyLock::new(|| {
+    dotenvy::var("JWT_ACCESS_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "2".to_string()).parse::<i64>().unwrap_or(2)
+});
+pub static JWT_REFRESH_TOKEN_EXPIRATION_HOURS: LazyLock<i64> = LazyLock::new(|| {
+    dotenvy::var("JWT_REFRESH_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "24".to_string()).parse::<i64>().unwrap_or(24)
+});
 
 
 #[derive(Debug, Serialize, Deserialize)]

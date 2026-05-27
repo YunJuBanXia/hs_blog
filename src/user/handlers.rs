@@ -1,16 +1,9 @@
 use axum::{Json, extract::{Path, State}, http::StatusCode, response::IntoResponse};
 use chrono::{Duration, Utc};
-use lazy_static::lazy_static;
 use sqlx::PgPool;
 use validator::Validate;
 
 use crate::{db::handle_db_error, errors::AppError, user::{jwt::{self}, pwd::Password, serializers::{UserLoginResponse, UserLoginSerializer, UserRegisterSerializer, UserResponse}}};
-
-
-lazy_static!(
-    static ref JWT_ACCESS_TOKEN_EXPIRATION_HOURS: i64 = dotenvy::var("JWT_ACCESS_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "2".to_string()).parse::<i64>().unwrap_or(2);
-    static ref JWT_REFRESH_TOKEN_EXPIRATION_HOURS: i64 = dotenvy::var("JWT_REFRESH_TOKEN_EXPIRATION_HOURS").unwrap_or_else(|_| "168".to_string()).parse::<i64>().unwrap_or(168);
-);
 
 
 pub async fn list_users(State(pool): State<PgPool>) -> impl IntoResponse {
@@ -166,8 +159,8 @@ pub async fn login(
 
     // 生成 JWT token
     let issued_at = Utc::now();
-    let access_duration = Duration::hours(*JWT_ACCESS_TOKEN_EXPIRATION_HOURS);
-    let refresh_duration = Duration::hours(*JWT_REFRESH_TOKEN_EXPIRATION_HOURS);
+    let access_duration = Duration::hours(*jwt::JWT_ACCESS_TOKEN_EXPIRATION_HOURS);
+    let refresh_duration = Duration::hours(*jwt::JWT_REFRESH_TOKEN_EXPIRATION_HOURS);
 
     let access_token = jwt::generate_token(user.id, issued_at + access_duration, issued_at).map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate JWT token: {}", e)))?;
     let refresh_token = jwt::generate_token(user.id, issued_at + refresh_duration, issued_at).map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to generate JWT token: {}", e)))?;
