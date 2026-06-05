@@ -130,7 +130,7 @@ pub async fn register(
         .map_err(|e| handle_db_error(e))?;  // 拦截错误并转换为 AppError
 
     // 注册成功
-    Ok((StatusCode::CREATED, "User registered successfully").into_response())
+    Ok(StatusCode::CREATED)
 }
 
 
